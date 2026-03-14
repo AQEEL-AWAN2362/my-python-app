@@ -36,7 +36,26 @@ jobs:
 
       - name: 🔍 Verify container starts
         run: |
-          docker run -d -p 8000:8000 --name test-container my-python-app
-          sleep 3
-          curl http://localhost:8000/health
-          docker stop test-container
+          docker rm -f test-container >/dev/null 2>&1 || true
+          docker run -d -p 8001:8001 --name test-container my-python-app
+          sleep 10
+          for i in {1..15}; do
+            if [ "$(docker inspect -f '{{.State.Running}}' test-container)" != "true" ]; then
+              echo "Container exited before health check. Logs:"
+              docker logs test-container
+              exit 1
+            fi
+            if curl --fail --silent --show-error http://localhost:8001/health; then
+              echo "Health endpoint is up"
+              docker stop test-container
+              break
+            fi
+            echo "Waiting for container... attempt $i"
+            sleep 2
+            if [ "$i" -eq 15 ]; then
+              echo "Container failed health check. Logs:"
+              docker logs test-container
+              docker stop test-container || true
+              exit 1
+            fi
+          done
