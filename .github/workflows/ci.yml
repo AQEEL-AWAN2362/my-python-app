@@ -63,7 +63,7 @@ jobs:
               docker logs test-container
               exit 1
             fi
-            if curl --fail --silent --show-error http://localhost:8000/health; do  # ✅ fixed port
+            if curl --fail --silent --show-error http://localhost:8000/health; then  # ✅ fixed port
               echo "Health endpoint is up"
               docker stop test-container
               break
