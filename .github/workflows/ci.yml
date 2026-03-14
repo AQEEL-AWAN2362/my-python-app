@@ -36,7 +36,7 @@ jobs:
   # ─────────────────────────────────────
   build-docker:
     runs-on: ubuntu-latest
-    needs: test                          # only runs if tests pass
+    needs: test
 
     outputs:
       image: ${{ steps.build-push.outputs.image }}
@@ -55,7 +55,7 @@ jobs:
       - name: 🔍 Verify container starts
         run: |
           docker rm -f test-container >/dev/null 2>&1 || true
-          docker run -d -p 8000:8000 --name test-container my-python-app  # ✅ fixed port
+          docker run -d -p 8000:8000 --name test-container my-python-app
           sleep 10
           for i in {1..15}; do
             if [ "$(docker inspect -f '{{.State.Running}}' test-container)" != "true" ]; then
@@ -63,7 +63,7 @@ jobs:
               docker logs test-container
               exit 1
             fi
-            if curl --fail --silent --show-error http://localhost:8000/health; then  # ✅ fixed port
+            if curl --fail --silent --show-error http://localhost:8000/health; then
               echo "Health endpoint is up"
               docker stop test-container
               break
@@ -88,6 +88,19 @@ jobs:
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
+      - name: 🔍 Debug ECR values        
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          echo "Registry: $ECR_REGISTRY"
+          echo "Repository: $ECR_REPOSITORY"
+          echo "Full URI: $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+          echo "---"
+          echo "Listing all ECR repos in your AWS account:"
+          aws ecr describe-repositories --query 'repositories[*].repositoryName' --output table
+
       - name: 📤 Tag and push image to ECR
         id: build-push
         env:
@@ -95,16 +108,11 @@ jobs:
           ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
           IMAGE_TAG: ${{ github.sha }}
         run: |
-          # tag the already built image
-          docker tag my-python-app $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-          docker tag my-python-app $ECR_REGISTRY/$ECR_REPOSITORY:latest
-
-          # push both tags
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
-
-          # save full image URI as output for deploy job
-          echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
+          docker tag my-python-app "${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}"
+          docker tag my-python-app "${ECR_REGISTRY}/${ECR_REPOSITORY}:latest"
+          docker push "${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}"
+          docker push "${ECR_REGISTRY}/${ECR_REPOSITORY}:latest"
+          echo "image=${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}" >> $GITHUB_OUTPUT
 
   # ─────────────────────────────────────
   # JOB 3 — Deploy to ECS
