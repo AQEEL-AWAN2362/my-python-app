@@ -82,7 +82,7 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: us-east-1             # ← hardcoded for debugging
+          aws-region: ${{ secrets.AWS_REGION }}             
 
       - name: 🔑 Login to Amazon ECR
         id: login-ecr
@@ -90,12 +90,7 @@ jobs:
         with:
           registries: "430102461141"
 
-      - name: 🔍 Debug registry output
-        run: |
-          echo "Registry from login: ${{ steps.login-ecr.outputs.registry }}"
-          echo "Repos in us-east-1:"
-          aws ecr describe-repositories --region us-east-1 --output table
-
+      
       - name: 📤 Tag and push image to ECR
         id: build-push
         env:
