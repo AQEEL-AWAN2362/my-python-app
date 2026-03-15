@@ -23,7 +23,7 @@ jobs:
       - name: 🐍 Set up Python 3.13
         uses: actions/setup-python@v6
         with:
-          python-version: '3.13'        # ✅ fixed from 3.13.11
+          python-version: '3.13'
 
       - name: 📦 Install dependencies
         run: pip install -r requirements.txt
@@ -32,7 +32,7 @@ jobs:
         run: pytest test_app.py -v
 
   # ─────────────────────────────────────
-  # JOB 2 — Build & Verify Docker Image
+  # JOB 2 — Build & Push Docker Image
   # ─────────────────────────────────────
   build-docker:
     runs-on: ubuntu-latest
@@ -82,7 +82,7 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: ${{ secrets.AWS_REGION }}             
+          aws-region: ${{ secrets.AWS_REGION }}
 
       - name: 🔑 Login to Amazon ECR
         id: login-ecr
@@ -90,7 +90,6 @@ jobs:
         with:
           registries: "430102461141"
 
-      
       - name: 📤 Tag and push image to ECR
         id: build-push
         env:
@@ -123,13 +122,13 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: ${{ secrets.AWS_REGION }}    # ← must use secret not hardcoded
+          aws-region: ${{ secrets.AWS_REGION }}
 
       - name: 📋 Download current task definition
         run: |
           aws ecs describe-task-definition \
             --task-definition ${{ secrets.ECS_TASK_DEFINITION }} \
-            --region ${{ secrets.AWS_REGION }} \        # ← add explicit region
+            --region ${{ secrets.AWS_REGION }} \
             --query taskDefinition \
             > task-definition.json
 
