@@ -12,7 +12,7 @@ env:
 
 jobs:
   # ─────────────────────────────────────
-  # JOB 1 — Run Tests (runs on push + PR)
+  # JOB 1 — Run Tests
   # ─────────────────────────────────────
   test:
     runs-on: ubuntu-latest
@@ -32,15 +32,12 @@ jobs:
         run: pytest test_app.py -v
 
   # ─────────────────────────────────────
-  # JOB 2 — Build & Push (push only)
+  # JOB 2 — Build & Push Docker Image
   # ─────────────────────────────────────
   build-docker:
     runs-on: ubuntu-latest
     needs: test
     if: github.event_name == 'push'
-
-    outputs:
-      image: ${{ steps.build-push.outputs.image }}
 
     permissions:
       id-token: write
@@ -101,27 +98,29 @@ jobs:
           FULL_IMAGE="${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}"
           LATEST_IMAGE="${ECR_REGISTRY}/${ECR_REPOSITORY}:latest"
 
-          echo "Full image URI: $FULL_IMAGE"
-
           docker tag my-python-app "$FULL_IMAGE"
           docker tag my-python-app "$LATEST_IMAGE"
 
           docker push "$FULL_IMAGE"
           docker push "$LATEST_IMAGE"
 
-          echo "image=$FULL_IMAGE" >> "$GITHUB_OUTPUT"
-          echo "Saved to GITHUB_OUTPUT: image=$FULL_IMAGE"
+          # Save image URI to a file instead of job output
+          echo "$FULL_IMAGE" > image-uri.txt
+          echo "Saved image URI: $FULL_IMAGE"
+
+      - name: 📦 Upload image URI as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: image-uri
+          path: image-uri.txt
 
   # ─────────────────────────────────────
-  # JOB 3 — Deploy to ECS (push only)
+  # JOB 3 — Deploy to ECS
   # ─────────────────────────────────────
   deploy:
     runs-on: ubuntu-latest
     needs: build-docker
     if: github.event_name == 'push'
-
-    env:
-      IMAGE_URI: ${{ needs.build-docker.outputs.image }}
 
     permissions:
       id-token: write
@@ -130,6 +129,18 @@ jobs:
     steps:
       - name: 📥 Checkout code
         uses: actions/checkout@v6
+
+      - name: 📦 Download image URI artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: image-uri
+
+      - name: 📖 Read image URI
+        id: read-image
+        run: |
+          IMAGE=$(cat image-uri.txt)
+          echo "Image URI: $IMAGE"
+          echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
 
       - name: 🔐 Configure AWS credentials via OIDC
         uses: aws-actions/configure-aws-credentials@v4
@@ -145,17 +156,13 @@ jobs:
             --query taskDefinition \
             > task-definition.json
 
-      - name: 🔍 Debug image output
-        run: |
-          echo "Image received in deploy: $IMAGE_URI"
-
       - name: 🔄 Update task definition with new image
         id: task-def
         uses: aws-actions/amazon-ecs-render-task-definition@v1
         with:
           task-definition: task-definition.json
           container-name: my-python-app-container
-          image: ${{ needs.build-docker.outputs.image }}
+          image: ${{ steps.read-image.outputs.image }}    # ← from artifact
 
       - name: 🚀 Deploy to ECS
         uses: aws-actions/amazon-ecs-deploy-task-definition@v2
