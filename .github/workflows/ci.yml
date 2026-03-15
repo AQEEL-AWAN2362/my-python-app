@@ -82,24 +82,19 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: ${{ secrets.AWS_REGION }}
+          aws-region: us-east-1             # ← hardcoded for debugging
 
       - name: 🔑 Login to Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
+        with:
+          registries: "430102461141"
 
-      - name: 🔍 Debug ECR values        
-        env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
-          IMAGE_TAG: ${{ github.sha }}
+      - name: 🔍 Debug registry output
         run: |
-          echo "Registry: $ECR_REGISTRY"
-          echo "Repository: $ECR_REPOSITORY"
-          echo "Full URI: $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
-          echo "---"
-          echo "Listing all ECR repos in your AWS account:"
-          aws ecr describe-repositories --query 'repositories[*].repositoryName' --output table
+          echo "Registry from login: ${{ steps.login-ecr.outputs.registry }}"
+          echo "Repos in us-east-1:"
+          aws ecr describe-repositories --region us-east-1 --output table
 
       - name: 📤 Tag and push image to ECR
         id: build-push
