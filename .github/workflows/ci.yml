@@ -4,8 +4,8 @@ name: CI/CD Pipeline
 on:
   push:
     branches: [main]
-  pull_request:
-    branches: [main]
+  # pull_request:
+  #   branches: [main]
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -126,6 +126,9 @@ jobs:
       id-token: write
       contents: read
 
+    env:
+      IMAGE_URI: ${{ needs.build-docker.outputs.image }}    # ← store as env var
+
     steps:
       - name: 📥 Checkout code
         uses: actions/checkout@v6
@@ -146,7 +149,7 @@ jobs:
 
       - name: 🔍 Debug image output
         run: |
-          echo "Image received in deploy: ${{ needs.build-docker.outputs.image }}"
+          echo "Image received in deploy: $IMAGE_URI"
 
       - name: 🔄 Update task definition with new image
         id: task-def
