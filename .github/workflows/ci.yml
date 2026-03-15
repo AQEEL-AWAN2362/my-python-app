@@ -114,7 +114,7 @@ jobs:
   # ─────────────────────────────────────
   deploy:
     runs-on: ubuntu-latest
-    needs: build-docker                  # only runs if build passes
+    needs: build-docker
 
     permissions:
       id-token: write
@@ -128,12 +128,13 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: ${{ secrets.AWS_REGION }}
+          aws-region: ${{ secrets.AWS_REGION }}    # ← must use secret not hardcoded
 
       - name: 📋 Download current task definition
         run: |
           aws ecs describe-task-definition \
             --task-definition ${{ secrets.ECS_TASK_DEFINITION }} \
+            --region ${{ secrets.AWS_REGION }} \        # ← add explicit region
             --query taskDefinition \
             > task-definition.json
 
