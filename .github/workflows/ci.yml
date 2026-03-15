@@ -108,7 +108,7 @@ jobs:
   # ─────────────────────────────────────
   deploy:
     runs-on: ubuntu-latest
-    needs: build-docker
+    needs: build-docker                        # ← must match exact job id
 
     permissions:
       id-token: write
@@ -138,7 +138,7 @@ jobs:
         with:
           task-definition: task-definition.json
           container-name: my-python-app-container
-          image: ${{ needs.build-docker.outputs.image }}
+          image: ${{ needs.build-docker.outputs.image }}    # ← must match exactly
 
       - name: 🚀 Deploy to ECS
         uses: aws-actions/amazon-ecs-deploy-task-definition@v2
